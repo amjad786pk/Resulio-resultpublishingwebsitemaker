@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- Premium Smooth Design Variables --- */
+        :root { --primary: #4f46e5; --primary-hover: #4338ca; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --bg-color: #f3f4f6; --card-bg: #ffffff; --text-main: #111827; --text-muted: #6b7280; --border-color: #e5e7eb; }
+        body.dark-mode { --bg-color: #111827; --card-bg: #1f2937; --text-main: #f9fafb; --text-muted: #9ca3af; --border-color: #374151; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden;}
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Navbar */
+        .navbar { background: var(--card-bg); padding: 15px 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border-color); }
+        .nav-left, .nav-right { display: flex; align-items: center; gap: 15px; }
+        .menu-btn { font-size: 24px; cursor: pointer; background: none; border: none; color: var(--text-main); display: none; }
+        .navbar h2 { color: var(--primary); font-weight: 700; font-size: 22px; cursor: pointer; letter-spacing: -0.5px;}
+        .bell-icon, .create-icon { font-size: 20px; cursor: pointer; background:none; border:none; color: var(--text-main); display:none; position: relative;}
+        .bell-badge { position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; font-size: 10px; padding: 2px 5px; border-radius: 50%; display: none; font-weight: bold;}
+        .login-btn-top { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; display: block; font-size: 14px;}
+
+        /* Sidebar */
+        #sidebarOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 999; display: none; opacity: 0; transition: opacity 0.3s ease;}
+        #sidebarOverlay.show { display: block; opacity: 1; }
+        #sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100vh; background: var(--card-bg); box-shadow: 4px 0 20px rgba(0,0,0,0.08); z-index: 1000; display: flex; flex-direction: column; transition: left 0.3s ease;}
+        #sidebar.open { left: 0; }
+        .sidebar-header { background: var(--primary); color: white; padding: 25px 20px; font-size: 18px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;}
+        .sidebar-links a { display: block; padding: 16px 25px; text-decoration: none; color: var(--text-main); border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 15px;}
+        .sidebar-links a:hover { background: rgba(79, 70, 229, 0.05); color: var(--primary); padding-left: 32px; }
+        .sidebar-links .logout-link { color: var(--danger); margin-top: auto; border-top: 1px solid var(--border-color); }
+
+        .container { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 25px; width: 100%; position: relative;}
+        .card { background: var(--card-bg); padding: 35px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); width: 100%; max-width: 850px; display: none; border: 1px solid var(--border-color);}
+        .active-section { display: block !important; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Banner Slider */
+        .slider-container { width: 100%; max-width: 850px; height: 250px; position: relative; border-radius: 12px; overflow: hidden; margin-bottom: 25px; background:#000; display: none; }
+        .slide { width: 100%; height: 100%; position: absolute; top:0; left:0; opacity: 0; transition: opacity 0.5s ease; background-size: cover; background-position: center; display:flex; align-items:center; justify-content:center;}
+        .slide.active { opacity: 1; }
+        .slide-content { background: rgba(0,0,0,0.5); color: white; padding: 15px 25px; border-radius: 8px; text-align: center; font-size: 20px; font-weight: 700; backdrop-filter: blur(4px);}
+
+        /* Inputs & Buttons */
+        .free-intro-text { font-size: 16px; color: var(--text-muted); line-height: 1.6; margin-bottom: 30px; padding: 0 10px; font-weight: 400;}
+        .free-intro-text strong { color: var(--primary); font-size: 18px; display: block; margin-bottom: 5px; font-weight: 700;}
+        .auth-card { max-width: 420px; text-align: center; margin: auto; }
+        .input-group { margin-bottom: 20px; text-align: left; position: relative; width: 100%;}
+        .input-group label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; display: block; font-weight: 600; text-transform: uppercase;}
+        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; outline: none; background: transparent; color: var(--text-main);}
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        .eye-btn { position: absolute; right: 15px; top: 38px; cursor: pointer; font-size: 16px; color: var(--text-muted); user-select: none; }
+        .btn-main { width: 100%; background: var(--primary); color: white; border: none; padding: 14px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn-main:hover { background: var(--primary-hover); transform: translateY(-1px);}
+
+        /* Admin Layout */
+        .admin-layout { display: flex; gap: 20px; flex-wrap: wrap;}
+        .admin-sidebar { width: 200px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid var(--border-color); padding-right: 15px; }
+        .admin-content { flex: 1; min-width: 300px; }
+        .admin-tab-btn { padding: 12px 15px; text-align: left; background: transparent; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text-main); font-weight: 600; font-size: 14px;}
+        .admin-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Tables & Badges */
+        .admin-table-container { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); overflow-x: auto; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+        table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 500px;}
+        th { background: rgba(79, 70, 229, 0.05); color: var(--primary); font-weight: 600; padding: 15px; border-bottom: 2px solid var(--border-color); text-transform: uppercase; font-size: 12px; text-align: left;}
+        td { padding: 15px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-block;}
+        .badge-active { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;}
+        .badge-suspended { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;}
+        .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a;}
+
+        /* Builder Wizard */
+        .wizard-step { display: none; }
+        .wizard-step.active { display: block; animation: fadeIn 0.3s ease; }
+        .wizard-header { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;}
+        .w-step-ind { font-weight: 600; color: var(--text-muted); font-size: 14px;}
+        .w-step-ind.active { color: var(--primary); border-bottom: 3px solid var(--primary); padding-bottom: 8px; margin-bottom: -12px;}
+
+        /* Project Grid */
+        .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .project-card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
+        .card-theme-bar { position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: var(--primary);}
+        .card-actions { display: flex; gap: 8px; margin-top: auto; padding-left: 10px; flex-wrap: wrap;}
+        .action-btn { flex: 1; min-width: 70px; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; text-align: center;}
+
+        .data-tabs { display: flex; gap: 10px; margin: 20px 0; background: rgba(107, 114, 128, 0.1); padding: 6px; border-radius: 10px; overflow-x: auto; scrollbar-width: none;}
+        .data-tabs::-webkit-scrollbar { display: none; }
+        .data-tab { flex: 1 1 auto; text-align: center; padding: 12px 15px; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 8px; color: var(--text-muted);}
+        .data-tab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .data-section { display: none; }
+        .data-section.active { display: block; animation: fadeIn 0.3s ease; }
+        
+        .manual-entry-box { border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; background: rgba(107, 114, 128, 0.02); }
+        .manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;}
+        .marks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 15px; align-items: end;}
+        
+        @media(max-width: 600px) { .manual-grid { grid-template-columns: 1fr; gap: 10px;} .form-row { grid-template-columns: 1fr;} }
+
+        .student-item { background: var(--card-bg); padding: 12px; border: 1px solid var(--border-color); margin-bottom: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; margin-top: 15px; position:relative;}
+        .btn-remove-stu { position:absolute; top: 10px; right: 10px; background:none; border:none; color:var(--danger); cursor:pointer; font-size:14px; font-weight:bold; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px;}
+
+        /* Doc Page */
+        .doc-page { position:absolute; top:0; left:0; width:100%; min-height:100vh; background:var(--bg-color); z-index:500; display:none; padding:40px 20px;}
+        .doc-content { max-width:800px; margin:auto; background:var(--card-bg); padding:40px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
+
+        /* Public View Layout */
+        .public-view-container { display: none; flex-direction: column; width: 100%; max-width: 500px; margin: auto; background: var(--card-bg); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid var(--border-color); min-height: 80vh; position: relative;}
+        .preview-header { background: var(--primary); color: white; padding: 20px; display:flex; justify-content:space-between; align-items:center;}
+        .preview-body { padding: 30px; flex:1; overflow-y:auto; background: var(--bg-color); color: var(--text-main); position: relative;}
+        
+        .preview-menu { position: absolute; top: 0; left: -100%; width: 280px; height: 100%; background: var(--card-bg); box-shadow: 2px 0 15px rgba(0,0,0,0.15); z-index: 10; transition: left 0.3s ease; display:flex; flex-direction: column;}
+        .preview-menu.open { left: 0; }
+        .preview-menu a { padding: 18px 25px; border-bottom: 1px solid var(--border-color); color: var(--text-main); text-decoration: none; font-weight: 500; font-size: 15px; display: block;}
+        .preview-menu a:hover { background: rgba(79, 70, 229, 0.05); color: var(--primary); }
+
+        .result-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color); font-size: 14px;}
+        .status-pass { display: inline-block; padding: 6px 15px; border-radius: 20px; font-size: 13px; font-weight: 700; border: 1px solid; margin-bottom: 10px;}
+
+        /* Modals */
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; justify-content:center; align-items:center; opacity:0; transition: opacity 0.3s ease;}
+        .modal-overlay.show { display:flex; opacity:1; }
+        .modal-content { background: var(--card-bg); width: 90%; max-width: 400px; border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; color: var(--text-main); }
+        #toast { position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; z-index: 3000; transition: bottom 0.3s ease;}
+        #toast.show { bottom: 30px; }
+        
+        /* Print Styles */
+        @media print {
+            body * { visibility: hidden; }
+            #publicViewContainer, #publicViewContainer * { visibility: visible; }
+            #publicViewContainer { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: none; }
+            .preview-menu, #publicBackLink, .print-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Full Page Loader -->
+    <div id="loader" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+        <div style="border: 4px solid rgba(79, 70, 229, 0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: var(--primary); animation: spin 1s linear infinite; margin-bottom: 15px;"></div>
+        <p style="color: var(--text-muted); font-size: 14px; font-weight: 600;">Loading...</p>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar" id="mainNavbar">
+        <div class="nav-left">
+            <button class="menu-btn" id="menuBtn" onclick="window.customOpenSidebar()">☰</button>
+            <h2 onclick="window.customNavigateHome()">Result Builder</h2>
+        </div>
+        <div class="nav-right">
+            <button class="create-icon" id="createIcon" onclick="window.customCheckLoginAndNavigate('builderSection', true)">➕</button>
+            <button class="bell-icon" id="bellIcon" onclick="window.customCheckLoginAndNavigate('notifSection')">🔔<span class="bell-badge" id="notifBadge">0</span></button>
+            <button class="login-btn-top" id="topLoginBtn" onclick="window.customNavigate('authSection')">Login / Signup</button>
+        </div>
+    </nav>
+
+    <!-- Sidebar Drawer -->
+    <div id="sidebarOverlay" onclick="window.customCloseSidebar()"></div>
+    <div id="sidebar">
+        <div class="sidebar-header">Menu <span onclick="window.customCloseSidebar()">×</span></div>
+        <div class="sidebar-links" id="sidebarLinks"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container" id="mainContainer" style="display:none;">
+        
+        <!-- DYNAMIC SLIDER (Visible on Home and Dashboard) -->
+        <div class="slider-container" id="homeSlider">
+            <div class="slide active" id="slide1" style="background-image: url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=800&auto=format&fit=crop');"><div class="slide-content" id="slideText1">Create Result Portal in 1 Minute</div></div>
+            <div class="slide" id="slide2" style="background-image: url('https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=800&auto=format&fit=crop');"><div class="slide-content" id="slideText2">Secure & Private Results</div></div>
+            <div class="slide" id="slide3" style="background-image: url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=800&auto=format&fit=crop');"><div class="slide-content" id="slideText3">Class-wise Data Filtering</div></div>
+            <div class="slide" id="slide4" style="background-image: url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=800&auto=format&fit=crop');"><div class="slide-content" id="slideText4">Download PDF Instantly</div></div>
+        </div>
+
+        <!-- 0. Public Home Page (Shown First when logged out) -->
+        <div class="card active-section" id="homeSection" style="max-width: 900px; padding: 20px;">
+            <div style="text-align:center; padding: 20px;">
+                <h3 style="margin-bottom:15px; color:var(--primary); font-size:24px;">Welcome to Result Builder</h3>
+                <p style="color:var(--text-muted); line-height:1.6; margin-bottom:25px;" id="homeIntroText">The fastest way to publish and manage student exam results securely.</p>
+                <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
+                    <button class="btn-main" style="max-width:200px;" onclick="window.customCheckLoginAndNavigate('builderSection', true)">Create Web Now</button>
+                    <button class="btn-main" style="max-width:200px; background:transparent; color:var(--primary); border:2px solid var(--primary);" onclick="window.customCheckLoginAndNavigate('worksSection')">My Works</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. Auth Section -->
+        <div class="card auth-card" id="authSection">
+            <h3 id="authTitle">Welcome Back</h3>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;" id="authSubtitle">Login to continue</p>
+            <div id="authStep1">
+                <div class="input-group"><label>Email Address</label><input type="text" id="email" placeholder="e.g. you@gmail.com"></div>
+                <div class="input-group">
+                    <label>Password</label><input type="password" id="password" placeholder="••••••••" style="padding-right: 40px;">
+                    <span class="eye-btn" onclick="window.customTogglePasswordVisibility('password')">👁️</span>
+                </div>
+                <button class="btn-main" id="authBtn" onclick="window.customAuthenticateStep1()">Login</button>
+                <div style="margin-top:15px; display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:var(--primary); cursor:pointer;">
+                    <span onclick="window.customForgotPassword()">Forgot Password?</span>
+                    <span id="authToggle" onclick="window.customToggleAuthMode()">Sign Up</span>
+                </div>
+            </div>
+            <div id="authStep2" style="display:none; text-align:left;">
+                <p style="font-size: 13px; color:var(--primary); font-weight:600; margin-bottom:15px; text-align:center;">Complete your profile (18+ only)</p>
+                <div class="input-group"><label>First Name *</label><input type="text" id="fName" placeholder="First Name"></div>
+                <div class="input-group"><label>Last Name (Optional)</label><input type="text" id="lName" placeholder="Last Name"></div>
+                <div class="input-group"><label>Date of Birth *</label><input type="text" id="regDob" placeholder="DD/MM/YYYY" oninput="window.customFormatDateInput(event)"></div>
+                
+                <div style="margin-bottom: 20px; display:flex; align-items:flex-start; gap:10px;">
+                    <input type="checkbox" id="termsCheck" style="width:auto; margin-top:3px;">
+                    <label for="termsCheck" style="font-size:12px; text-transform:none; font-weight:400; line-height:1.4;">I agree to the <a href="#" onclick="window.customOpenDocPage('terms')" style="color:var(--primary);">Terms & Conditions</a> and <a href="#" onclick="window.customOpenDocPage('privacy')" style="color:var(--primary);">Privacy Policy</a>.</label>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-main" style="background:transparent; color:var(--text-main); border:1px solid var(--border-color);" onclick="window.customBackToStep1()">Back</button>
+                    <button class="btn-main" onclick="window.customCompleteSignup()">Complete Sign Up</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Dashboard Section (Logged In) -->
+        <div class="card" id="dashboardSection">
+            <div class="free-intro-text" id="dashIntroText"></div>
+            <div style="background: rgba(107, 114, 128, 0.05); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                <h4 style="margin-bottom: 15px; color: var(--primary);">How to publish your results:</h4>
+                <ol style="padding-left: 20px; font-size: 14px; line-height: 1.8;">
+                    <li><strong>Enter Details:</strong> Provide Institute Name and Exam Name.</li>
+                    <li><strong>Security Setup:</strong> Require DOB or Password to view results.</li>
+                    <li><strong>Upload Data:</strong> Add student marks via CSV or manual entry.</li>
+                    <li><strong>Publish:</strong> Generate a secure link instantly!</li>
+                </ol>
+            </div>
+            <button class="btn-main" style="background: var(--success); padding: 16px; max-width: 300px; margin:auto;" onclick="window.customNavigate('builderSection'); window.customCurrentEditUrl=null; window.customClearBuilderForm();">+ Create Result Portal</button>
+        </div>
+
+        <!-- 2.5 Suspended Account Section -->
+        <div class="card" id="suspendSection" style="max-width: 500px; text-align: center; margin: auto;">
+            <div style="font-size: 50px; margin-bottom:15px;">🚫</div>
+            <h3 style="color: var(--danger); margin-bottom:10px; font-size:24px;">Account Suspended</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Your account has been suspended or is pending deletion.</p>
+            <div id="appealStatusContainer" style="display:none;"></div>
+            <button class="btn-main" id="btnSubmitAppeal" onclick="window.customOpenModal('appealModal')">Submit an Appeal</button>
+            <button class="btn-main" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); margin-top: 15px;" onclick="window.customLogout()">Logout</button>
+        </div>
+
+        <!-- 3. PREMIUM Admin Panel -->
+        <div class="card" id="adminSection" style="max-width: 1000px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom:15px;">
+                <h3 style="color: var(--danger); margin:0;">Admin Panel</h3><span class="badge badge-active" style="font-size:12px;">Super Admin</span>
+            </div>
+            
+            <div class="admin-layout">
+                <div class="admin-sidebar">
+                    <button class="admin-tab-btn active" onclick="window.customSwitchAdminTab('users', this)">👥 Users</button>
+                    <button class="admin-tab-btn" onclick="window.customSwitchAdminTab('appeals', this)">⚖️ Appeals</button>
+                    <button class="admin-tab-btn" onclick="window.customSwitchAdminTab('tickets', this)">📩 Support / Chat</button>
+                    <button class="admin-tab-btn" onclick="window.customSwitchAdminTab('reports', this)">🚩 Reports</button>
+                    <button class="admin-tab-btn" onclick="window.customSwitchAdminTab('settings', this)">⚙ Site Settings</button>
+                    <button class="admin-tab-btn" onclick="window.customSwitchAdminTab('slider', this)">🖼️ Home Sliders</button>
+                    <button class="admin-tab-btn" onclick="window.customSwitchAdminTab('creds', this)">🔐 Admin Password</button>
+                </div>
+                
+                <div class="admin-content">
+                    <div id="admin-users" class="admin-tab-content" style="display:block;"><div class="admin-table-container"><table><thead><tr><th>User Email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="adminUserList"></tbody></table></div></div>
+                    <div id="admin-appeals" class="admin-tab-content" style="display:none;"><div class="admin-table-container"><table><thead><tr><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody id="adminAppealsList"></tbody></table></div></div>
+                    <div id="admin-reports" class="admin-tab-content" style="display:none;"><div class="admin-table-container"><table><thead><tr><th>Link</th><th>Reason</th><th>Action</th></tr></thead><tbody id="adminReportList"></tbody></table></div></div>
+                    <div id="admin-tickets" class="admin-tab-content" style="display:none;"><div class="admin-table-container"><table><thead><tr><th>User / Subject</th><th>Message</th><th>Action</th></tr></thead><tbody id="adminTicketList"></tbody></table></div></div>
+                    
+                    <div id="admin-settings" class="admin-tab-content" style="display:none;">
+                        <div class="input-group"><label>Home Page Intro Text</label><textarea id="adminIntroText" style="height: 60px;"></textarea></div>
+                        <div class="input-group"><label>Global Privacy Policy</label><textarea id="adminPrivacyText" style="height: 100px;"></textarea></div>
+                        <div class="input-group"><label>Terms & Conditions</label><textarea id="adminTermsText" style="height: 100px;"></textarea></div>
+                        <button class="btn-main" onclick="window.customSaveAdminSettings()">Save Settings</button>
+                    </div>
+
+                    <div id="admin-slider" class="admin-tab-content" style="display:none;">
+                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Enter image URLs and text for the 4 home page slides.</p>
+                        <div style="display:flex; gap:10px;"><input type="text" id="sl1i" placeholder="Slide 1 Image URL" style="flex:1; padding:8px;"><input type="text" id="sl1t" placeholder="Slide 1 Text" style="flex:1; padding:8px;"></div><br>
+                        <div style="display:flex; gap:10px;"><input type="text" id="sl2i" placeholder="Slide 2 Image URL" style="flex:1; padding:8px;"><input type="text" id="sl2t" placeholder="Slide 2 Text" style="flex:1; padding:8px;"></div><br>
+                        <div style="display:flex; gap:10px;"><input type="text" id="sl3i" placeholder="Slide 3 Image URL" style="flex:1; padding:8px;"><input type="text" id="sl3t" placeholder="Slide 3 Text" style="flex:1; padding:8px;"></div><br>
+                        <div style="display:flex; gap:10px;"><input type="text" id="sl4i" placeholder="Slide 4 Image URL" style="flex:1; padding:8px;"><input type="text" id="sl4t" placeholder="Slide 4 Text" style="flex:1; padding:8px;"></div><br>
+                        <button class="btn-main" onclick="window.customSaveAdminSliders()">Save Sliders</button>
+                    </div>
+
+                    <div id="admin-creds" class="admin-tab-content" style="display:none;">
+                        <div class="input-group"><label>New Admin Username</label><input type="text" id="adminUserNew" value="admin"></div>
+                        <div class="input-group"><label>New Admin Password</label><input type="text" id="adminPassNew" value="12321"></div>
+                        <button class="btn-main" style="background:var(--warning);" onclick="window.customSaveAdminCreds()">Update Login Credentials</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Builder Section (3 Steps) -->
+        <div class="card" id="builderSection">
+            <h3 style="margin-bottom: 20px; font-size: 22px;" id="builderMainTitle">Create Result Portal</h3>
+            
+            <div class="wizard-header">
+                <span class="w-step-ind active" id="ind1">1. Details</span>
+                <span class="w-step-ind" id="ind2">2. Add Data</span>
+                <span class="w-step-ind" id="ind3">3. Preview</span>
+            </div>
+
+            <!-- Step 1: Details -->
+            <div class="wizard-step active" id="bStep1">
+                <div class="form-row"><div class="input-group"><label>Institute Name *</label><input type="text" id="siteName" placeholder="E.g., ABC High School"></div><div class="input-group"><label>Exam Name *</label><input type="text" id="examName" placeholder="E.g., Term 1 Exam"></div></div>
+                <div class="form-row"><div class="input-group"><label>Search Security</label><select id="searchMethod" onchange="window.customToggleManualSecurityFields()"><option value="regOnly">Reg No Only</option><option value="regDob">Reg No + DOB</option><option value="regPass">Reg No + Password</option></select></div><div class="input-group"><label>Theme Color</label><input type="color" id="themeColor" value="#4f46e5" style="height:46px; padding:2px;"></div></div>
+                <div class="form-row"><div class="input-group"><label>Student Label</label><input type="text" id="studentLabel" value="Student"></div><div class="input-group"><label>Marks Label</label><input type="text" id="marksLabel" value="Mark"></div></div>
+                <div style="background: rgba(79, 70, 229, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);"><label style="display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; cursor:pointer;"><input type="checkbox" id="enableClassCheck" onchange="window.customToggleClassSettings()" style="width:18px; height:18px;"> Enable Class-wise Results</label><div id="classSettingsDiv" style="display:none; margin-top:15px;"><div class="input-group" style="margin-bottom:0;"><label>Classes (Comma separated)</label><input type="text" id="classNamesInput" oninput="window.customUpdateClassDropdowns()"></div></div></div>
+                
+                <div style="display:flex; gap:15px; justify-content:space-between;">
+                    <button class="btn-main" style="background:transparent; color:var(--primary); border:1px solid var(--primary); width:auto;" onclick="window.customSaveDraft(1)">Save Draft</button>
+                    <button class="btn-main" style="width:auto; padding:12px 30px;" onclick="window.customNextStep(2)">Next ➔</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Data Entry -->
+            <div class="wizard-step" id="bStep2">
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Add student data. Name or Reg No is required.</p>
+                <div class="data-tabs"><div class="data-tab active" id="tab-file" onclick="window.customSwitchDataTab('file')">📂 Upload CSV</div><div class="data-tab" id="tab-manual" onclick="window.customSwitchDataTab('manual')">✍ Manual Entry</div></div>
+                <div class="data-section active" id="sec-file"><div class="file-upload-box" style="border: 2px dashed var(--border-color); padding: 30px; text-align: center; border-radius: 12px; cursor: pointer; background: rgba(107, 114, 128, 0.05);" onclick="document.getElementById('dataUpload').click()"><p style="color: var(--primary); font-weight: 600;">Click to Browse CSV File</p><input type="file" id="dataUpload" style="display: none;" onchange="window.customShowFileName(this)"><p id="fileNameDisplay" style="color: var(--success); font-size: 13px; font-weight: 600; margin-top: 10px;"></p></div></div>
+                <div class="data-section" id="sec-manual">
+                    <div class="manual-entry-box">
+                        <div class="manual-grid"><div class="input-group" style="margin-bottom:0;"><label>Reg No.</label><input type="text" id="mReg"></div><div class="input-group" style="margin-bottom:0;"><label>Name</label><input type="text" id="mName"></div></div>
+                        <div class="manual-grid" id="dynamicSecContainer" style="display:none; margin-top:15px;"><div class="input-group" id="mDobContainer" style="margin-bottom:0; display:none;"><label>DOB (DD/MM/YYYY) *</label><input type="text" id="mDob" oninput="window.customFormatDateInput(event)"></div><div class="input-group" id="mPassContainer" style="margin-bottom:0; display:none;"><label>Password *</label><input type="text" id="mPass"></div></div>
+                        <div class="manual-grid" style="margin-top:15px;"><div class="input-group" style="margin-bottom:0;" id="mClassSelectContainer" style="display:none;"><label>Class</label><select id="mClassDrop"></select></div><div class="input-group" style="margin-bottom:0;"><label>Status</label><select id="mStatus"><option value="Pass">Pass</option><option value="Fail">Fail</option></select></div></div>
+                        <div style="display: flex; justify-content: space-between; align-items:center; margin-top: 15px; margin-bottom: 10px;"><label style="font-size: 12px; font-weight: 600; margin:0;">Subjects</label><button style="background:var(--success); color:white; border:none; padding: 6px 10px; font-size: 11px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.customAddNewSubjectField()">+ Add Subject</button></div>
+                        <div class="marks-grid" id="dynamicSubjectsGrid"><div class="input-group" style="margin-bottom:0;" id="totalBoxContainer"><label>Total</label><input type="number" id="mTotal"></div></div>
+                        <button class="btn-main" style="background: var(--text-main); color: var(--card-bg); margin-top: 15px;" onclick="window.customAddManualStudent()">+ Add Student</button>
+                        <p style="font-size:12px; color:var(--success); margin-top:10px; font-weight:bold;" id="stuCountTxt">0 Students Added</p>
+                    </div>
+                </div>
+                
+                <div style="display:flex; gap:15px; justify-content:space-between; margin-top:20px;">
+                    <div><button class="btn-main" style="background:transparent; color:var(--text-main); border:1px solid var(--border-color); width:auto; display:inline-block;" onclick="window.customNextStep(1)">Back</button> <button class="btn-main" style="background:transparent; color:var(--primary); border:1px solid var(--primary); width:auto; display:inline-block;" onclick="window.customSaveDraft(2)">Save Draft</button></div>
+                    <button class="btn-main" style="width:auto; padding:12px 30px;" onclick="window.customNextStep(3)">Preview ➔</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Preview -->
+            <div class="wizard-step" id="bStep3">
+                <h4 style="margin-bottom:15px; color:var(--primary);">Review Added Data</h4>
+                <div id="studentListPreview" style="max-height:300px; overflow-y:auto; border:1px solid var(--border-color); padding:10px; border-radius:8px; margin-bottom:20px;"></div>
+                
+                <div style="display:flex; gap:15px; justify-content:space-between; margin-top:20px;">
+                    <div><button class="btn-main" style="background:transparent; color:var(--text-main); border:1px solid var(--border-color); width:auto; display:inline-block;" onclick="window.customNextStep(2)">Back</button> <button class="btn-main" style="background:transparent; color:var(--primary); border:1px solid var(--primary); width:auto; display:inline-block;" onclick="window.customSaveDraft(3)">Save Draft</button></div>
+                    <button class="btn-main" style="background: var(--success); width:auto;" onclick="window.customVerifyAndPublish()">🚀 Publish Portal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Works & Drafts Section -->
+        <div class="card" id="worksSection">
+            <h3 style="margin-bottom: 15px;">My Area</h3>
+            <div class="data-tabs"><div class="data-tab active" onclick="window.customSwitchWorksTab('published', this)">Published Works</div><div class="data-tab" onclick="window.customSwitchWorksTab('drafts', this)">Drafts</div></div>
+            <div id="tab-published" style="display:block;"><div id="worksList" class="project-grid"></div></div>
+            <div id="tab-drafts" style="display:none;"><div id="draftsList" class="project-grid"></div></div>
+        </div>
+
+        <!-- Notification Full Page -->
+        <div class="card" id="notifSection">
+            <h3 style="margin-bottom:15px;">Notifications</h3>
+            <div id="notifListFull" style="min-height:200px; font-size:14px;"></div>
+        </div>
+        
+        <!-- Profile & Settings -->
+        <div class="card" id="profileSection"><h3 style="margin-bottom:15px;">Profile</h3><p>Email: <strong id="profileEmail"></strong></p><div class="form-row" style="margin-top:15px;"><div class="input-group"><label>First Name</label><input type="text" id="pFirstName"></div><div class="input-group"><label>Last Name</label><input type="text" id="pLastName"></div></div><div class="input-group"><label>DOB</label><input type="text" id="pDob" oninput="window.customFormatDateInput(event)"></div><button class="btn-main" style="width:auto;" onclick="window.customSaveProfileDetails()">Save Profile</button></div>
+        
+        <!-- NEW SETTINGS SECTION (With Change Password) -->
+        <div class="card" id="settingsSection">
+            <h3 style="margin-bottom:20px;">Settings</h3>
+            
+            <div style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                <h4 style="margin-bottom: 15px; color: var(--primary);">Change Password</h4>
+                <div class="input-group"><label>New Password</label><input type="password" id="newPass" placeholder="Enter new password"></div>
+                <button class="btn-main" style="width:auto;" onclick="window.customChangePassword()">Update Password</button>
+            </div>
+            
+            <h4 style="margin-bottom: 15px; color: var(--danger);">Delete Account</h4>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Deleting your account will permanently remove all your published portals after a 7-day waiting period.</p>
+            <div class="input-group"><label>Reason for deletion</label><input type="text" id="delReason" placeholder="Reason..."></div>
+            <div class="input-group"><label>Confirm Password</label><input type="password" id="delPass" placeholder="••••••••"></div>
+            <button class="btn-main" style="background:var(--danger);" onclick="window.customRequestAccountDeletion()">Request Account Deletion</button>
+        </div>
+        
+        <!-- NEW HELP/CONTACT ADMIN CHAT SECTION -->
+        <div class="card" id="helpSection">
+            <h3 style="margin-bottom:20px;">Contact Admin</h3>
+            <div id="chatBox" style="background:var(--bg-color); border:1px solid var(--border-color); border-radius:12px; height:350px; display:flex; flex-direction:column; padding:15px;">
+                <div id="chatMessages" style="flex:1; overflow-y:auto; margin-bottom:15px; display:flex; flex-direction:column; gap:10px;">
+                    <!-- Chat messages will appear here -->
+                </div>
+                <div id="chatControls" style="display:flex; gap:10px;">
+                    <button class="btn-main" id="chatStartBtn" onclick="window.customStartChat()">Start Chat</button>
+                    
+                    <input type="text" id="chatEmailInput" placeholder="Enter your Email ID..." style="display:none; flex:1; padding:10px; border:1px solid var(--border-color); border-radius:8px;">
+                    <button class="btn-main" id="chatEmailBtn" style="display:none; width:auto;" onclick="window.customChatSubmitEmail()">Send</button>
+                    
+                    <textarea id="chatProbInput" placeholder="Describe problem..." style="display:none; flex:1; padding:10px; border:1px solid var(--border-color); border-radius:8px; height:42px; resize:none;"></textarea>
+                    <button class="btn-main" id="chatProbBtn" style="display:none; width:auto;" onclick="window.customChatSubmitProblem()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PUBLIC RESULT VIEW CONTAINER -->
+        <div class="public-view-container" id="publicViewContainer">
+            <div class="preview-header" id="publicHeaderTheme">
+                <span style="cursor:pointer; font-size:24px; line-height:1;" onclick="window.customTogglePublicMenu()">☰</span>
+                <h3 style="font-size:18px; margin:0;" id="publicSiteTitle">Live Portal</h3><span style="width:24px;"></span> 
+            </div>
+            
+            <div class="preview-menu" id="publicMenu">
+                <div style="padding:15px; background:var(--primary); color:white; font-weight:600; font-size:16px;">Menu <span style="float:right; cursor:pointer;" onclick="window.customTogglePublicMenu()">×</span></div>
+                <a href="#" onclick="window.customShowPublicSearchBox()">🔍 Search Result</a>
+                <a href="#" onclick="window.customShowPublicClassBox()" id="publicMenuClassResults" style="display:none;">📚 Class-wise Results</a>
+                <a href="#" onclick="window.customOpenPreviewDoc('terms')">📜 Terms & Conditions</a>
+                <a href="#" onclick="window.customOpenPreviewDoc('privacy')">🛡️ Privacy Policy</a>
+            </div>
+
+            <div class="preview-body">
+                <div id="publicSearchBox" style="background:var(--card-bg); padding:25px; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
+                    <h4 id="publicExamTitle" style="margin-bottom: 20px; font-size:20px;">Exam Results</h4>
+                    <select id="publicClassSelect" style="display:none; width:100%; padding:14px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);"></select>
+                    <input type="text" id="publicRegInput" placeholder="Register Number" style="width:100%; padding:14px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);">
+                    <input type="text" id="publicSecInput" placeholder="Security" style="width:100%; padding:14px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:20px; background:transparent; color:var(--text-main); display:none;">
+                    <button style="width:100%; padding:14px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:16px;" id="publicSearchBtn" onclick="window.customRunPublicSearch()">Search</button>
+                </div>
+
+                <div id="publicResultCard" class="result-score-card"></div>
+
+                <div id="publicClassWiseBox" style="display:none; background:var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border-color);">
+                    <h4 style="margin-bottom: 15px; color:var(--primary);">Class-wise List</h4>
+                    <select id="publicCwSelect" style="width:100%; padding:12px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);" onchange="window.customRenderPublicClassWiseList()"></select>
+                    <div id="publicCwList" style="max-height: 400px; overflow-y:auto;"></div>
+                </div>
+                
+                <div id="publicDocBox" style="display:none; background:var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border-color);"><h4 style="margin-bottom:15px; color:var(--primary);" id="pubDocTitle">Doc</h4><div id="pubDocContent" style="font-size:13px; line-height:1.6; color:var(--text-muted); white-space:pre-wrap;"></div></div>
+            </div>
+            <div style="text-align:center; padding:15px; background:var(--bg-color); font-size:12px; color:var(--text-muted); border-top:1px solid var(--border-color);"><span id="publicBackLink" style="color:var(--primary); cursor:pointer; display:none; margin-right:15px;" onclick="window.customExitPublicView()">Go Back</span> Powered by Result Builder.</div>
+        </div>
+    </div>
+
+    <!-- DOCUMENT PAGE -->
+    <div class="doc-page" id="docPage" style="display:none;">
+        <div class="doc-content">
+            <button style="background:none; border:none; color:var(--primary); font-weight:600; cursor:pointer; margin-bottom:20px; font-size:14px;" onclick="window.customCloseDocPage()">← Back</button>
+            <h2 style="margin-bottom: 20px;" id="docTitle">Title</h2>
+            <div style="font-size:14px; line-height:1.8; color:var(--text-muted); white-space:pre-wrap;" id="docText">Content</div>
+        </div>
+    </div>
+
+    <!-- Modals Overlay -->
+    <div class="modal-overlay" id="adminEditUserModal"><div class="modal-content"><h3 style="margin-bottom:15px;">Edit User</h3><p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;" id="adminEditUserEmail"></p><div class="input-group"><label>First Name</label><input type="text" id="aeFName"></div><div class="input-group"><label>Last Name</label><input type="text" id="aeLName"></div><div class="input-group"><label>DOB</label><input type="text" id="aeDob" oninput="window.customFormatDateInput(event)"></div><div style="display:flex; gap:10px;"><button class="btn-main" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main);" onclick="window.customCloseModal('adminEditUserModal')">Cancel</button><button class="btn-main" onclick="window.customAdminSaveUserEdit()">Save</button></div></div></div>
+    <div class="modal-overlay" id="appealModal"><div class="modal-content"><h3 style="color:var(--primary); margin-bottom:15px;">Submit Appeal</h3><textarea id="appealText" placeholder="Explain your side..." style="width:100%; height:100px; padding:10px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:10px; background:transparent; color:var(--text-main);"></textarea><div class="input-group"><label>Upload Proof (Optional)</label><input type="file" id="appealProof" style="padding: 6px; cursor: pointer;"></div><div style="display:flex; gap:10px;"><button class="btn-main" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main);" onclick="window.customCloseModal('appealModal')">Cancel</button><button class="btn-main" onclick="window.customSubmitAppeal()">Send</button></div></div></div>
+    <div class="modal-overlay" id="adminAppealModal"><div class="modal-content"><h3 style="margin-bottom:15px;">Review Appeal</h3><p style="font-size:12px; color:var(--text-muted);">User: <strong id="aaEmail"></strong></p><div style="background:rgba(107, 114, 128, 0.05); padding:10px; border-radius:8px; margin:10px 0; font-size:13px;" id="aaText"></div><p style="font-size:12px; color:var(--primary); margin-bottom:15px; font-weight:600;" id="aaProof"></p><textarea id="aaReplyText" placeholder="Write a reply..." style="width:100%; height:60px; padding:10px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);"></textarea><div style="display:flex; gap:10px; flex-direction: column;"><button class="btn-main" style="background:var(--success);" onclick="window.customProcessAppeal('restore')">Approve & Restore Account</button><div style="display:flex; gap:10px;"><button class="btn-main" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main);" onclick="window.customCloseModal('adminAppealModal')">Cancel</button><button class="btn-main" onclick="window.customProcessAppeal('reply')">Only Send Reply</button></div></div></div></div>
+    <div class="modal-overlay" id="reportModal"><div class="modal-content"><h3 style="color:var(--danger); margin-bottom:15px;">Report Issue</h3><select id="reportReason" onchange="window.customCheckReportOther()" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);"><option value="Spam Link">This is a Spam Link</option><option value="Fake Information">This information is fake</option><option value="Other">Other Issues</option></select><textarea id="reportDesc" placeholder="Describe the problem..." style="display:none; width:100%; height:80px; padding:10px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);"></textarea><div style="display:flex; gap:10px;"><button class="btn-main" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main);" onclick="window.customCloseModal('reportModal')">Cancel</button><button class="btn-main" style="background:var(--danger);" onclick="window.customSubmitReport()">Report</button></div></div></div>
+    <div class="modal-overlay" id="replyModal"><div class="modal-content"><h3 style="margin-bottom:15px;">Reply to User</h3><textarea id="replyMsg" style="width:100%; height:100px; padding:10px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:15px; background:transparent; color:var(--text-main);" placeholder="Type reply..."></textarea><div style="display:flex; gap:10px;"><button class="btn-main" style="background:transparent; border:1px solid var(--border-color); color:var(--text-main);" onclick="window.customCloseModal('replyModal')">Cancel</button><button class="btn-main" onclick="window.customSendReply()">Send</button></div></div></div>
+    
+    <div id="toast">Message</div>
+
+    <!-- FIREBASE SDK CONFIGURATION -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, doc, setDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, updatePassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAe-JyaNAL9RSy1vu5k1j_GvzTPolhqMAk",
+            authDomain: "resulio-resultbuilder.firebaseapp.com",
+            databaseURL: "https://resulio-resultbuilder-default-rtdb.firebaseio.com",
+            projectId: "resulio-resultbuilder",
+            storageBucket: "resulio-resultbuilder.firebasestorage.app",
+            messagingSenderId: "552865110098",
+            appId: "1:552865110098:web:9265648653af4a53d7678b"
+        };
+        const app = initializeApp(firebaseConfig); const db = getFirestore(app); const auth = getAuth(app);
+
+        // GLOBALS
+        window.customCurrentUser = null; window.customIsLoginMode = true; window.customCurrentEditUrl = null; window.customCurrentDraftId = null;
+        window.customPreviewProj = null; window.customAddedStudents = []; window.customAdminEditingUserDocId = null; window.customCurrentPreviewLink = null;
+        window.chatUserEmail = ""; window.currentAdminReplyUser = null;
+        
+        let adminU = "admin"; let adminP = "12321"; 
+        const defPrivacy = "By publishing this portal, you agree that all information provided is accurate and legitimate.";
+        const defTerms = "1. Be responsible. \n2. Do not upload fake results.";
+        
+        // SLIDER LOGIC
+        let currentSlide = 1;
+        setInterval(() => {
+            document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+            currentSlide = currentSlide >= 4 ? 1 : currentSlide + 1;
+            let nxtSlide = document.getElementById('slide'+currentSlide);
+            if(nxtSlide) nxtSlide.classList.add('active');
+        }, 3000);
+
+        function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+        function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+        function showToast(msg) { let t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
+
+        async function fetchGlobals() {
+            try {
+                const qs = await getDocs(query(collection(db, "db_settings"), where("id", "==", "global")));
+                if(!qs.empty) {
+                    let d = qs.docs[0].data();
+                    if(d.adminU) adminU = d.adminU; if(d.adminP) adminP = d.adminP;
+                    let introEl = document.getElementById('homeIntroText');
+                    let dashIntroEl = document.getElementById('dashIntroText');
+                    if(introEl) introEl.innerText = d.intro || "The fastest way to publish student exam results.";
+                    if(dashIntroEl) dashIntroEl.innerHTML = `<strong>Notice:</strong><br>${d.intro || "Welcome! Use responsibly."}`;
+                    if(d.sliders) {
+                        for(let i=1; i<=4; i++) {
+                            let sl = document.getElementById('slide'+i); let st = document.getElementById('slideText'+i);
+                            if(sl && d.sliders[`s${i}i`]) sl.style.backgroundImage = `url('${d.sliders[`s${i}i`]}')`;
+                            if(st && d.sliders[`s${i}t`]) st.innerText = d.sliders[`s${i}t`];
+                        }
+                    }
+                }
+            } catch(e){}
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            await fetchGlobals();
+            let params = new URLSearchParams(window.location.search);
+            let urlId = params.get('id');
+            if(!urlId && window.location.hash.startsWith('#/r/')) { urlId = window.location.hash.replace('#/r/', ''); }
+            if(urlId) { window.customLoadPublicProjectFromFirebase(urlId, user ? user.email : null); return; }
+
+            hideLoader();
+
+            if (user) {
+                window.customCurrentUser = user.email;
+                document.getElementById('topLoginBtn').style.display = 'none'; document.getElementById('createIcon').style.display = 'block'; document.getElementById('menuBtn').style.display = 'block'; document.getElementById('bellIcon').style.display = 'block';
+                const qs = await getDocs(query(collection(db, "db_users"), where("email", "==", window.customCurrentUser)));
+                if(!qs.empty && qs.docs[0].data().status === 'Suspended') { window.customNavigate('suspendSection'); } 
+                else {
+                    window.customSetupSidebarUser(); 
+                    if(qs.empty) { window.customSetupUserUI({fName: 'User', email: window.customCurrentUser}); } else { window.customSetupUserUI(qs.docs[0].data()); }
+                    window.customNavigate('dashboardSection');
+                }
+            } else {
+                if(localStorage.getItem("loggedInAdmin") === "true") {
+                    window.customCurrentUser = "admin";
+                    document.getElementById('topLoginBtn').style.display = 'none'; document.getElementById('createIcon').style.display = 'none'; document.getElementById('menuBtn').style.display = 'block'; document.getElementById('bellIcon').style.display = 'none';
+                    window.customSetupSidebarAdmin(); window.customNavigate('adminSection'); return;
+                }
+                document.getElementById('topLoginBtn').style.display = 'block'; document.getElementById('createIcon').style.display = 'none'; document.getElementById('menuBtn').style.display = 'none'; document.getElementById('bellIcon').style.display = 'none';
+                window.customNavigate('homeSection');
+            }
+        });
+
+        // --- EXPOSED FUNCTIONS ---
+        window.customToggleAuthMode = function() {
+            window.customIsLoginMode = !window.customIsLoginMode;
+            document.getElementById('authTitle').innerText = window.customIsLoginMode ? "Welcome Back" : "Create Account";
+            document.getElementById('authSubtitle').innerText = window.customIsLoginMode ? "Login to continue" : "Sign up with a new @gmail.com";
+            document.getElementById('authBtn').innerText = window.customIsLoginMode ? "Login" : "Next Step";
+            document.getElementById('authToggle').innerText = window.customIsLoginMode ? "Sign Up" : "Login";
+            document.getElementById('authStep1').style.display = window.customIsLoginMode ? 'block' : 'none'; 
+            document.getElementById('authStep2').style.display = window.customIsLoginMode ? 'none' : 'block';
+        };
+
+        window.customBackToStep1 = function() { document.getElementById('authStep1').style.display = 'block'; document.getElementById('authStep2').style.display = 'none'; };
+        window.customOpenSidebar = function() { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarOverlay').classList.add('show'); };
+        window.customCloseSidebar = function() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('show'); };
+        window.customTogglePasswordVisibility = function(id) { let p = document.getElementById(id); p.type = p.type === "password" ? "text" : "password"; };
+        window.customFormatDateInput = function(e) { let v = e.target.value.replace(/\D/g, ''); if (v.length >= 5) e.target.value = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8); else if (v.length >= 3) e.target.value = v.substring(0, 2) + '/' + v.substring(2, 4); else e.target.value = v; };
+        
+        window.customOpenModal = function(id) { document.getElementById(id).classList.add('show'); };
+        window.customCloseModal = function(id) { document.getElementById(id).classList.remove('show'); };
+        
+        window.customOpenDocPage = async function(type) {
+            let title = type==='privacy' ? "Privacy Policy" : "Terms & Conditions"; let text = type==='privacy' ? defPrivacy : defTerms;
+            try { const qs = await getDocs(query(collection(db, "db_settings"), where("id", "==", "global"))); if(!qs.empty) { let d = qs.docs[0].data(); text = type==='privacy' ? (d.privacy||defPrivacy) : (d.terms||defTerms); } } catch(e){}
+            document.getElementById('docTitle').innerText = title; document.getElementById('docText').innerText = text;
+            document.getElementById('mainContainer').style.display = 'none'; document.getElementById('docPage').style.display = 'block'; window.customCloseSidebar();
+        };
+
+        window.customCloseDocPage = function() { document.getElementById('mainContainer').style.display = 'flex'; document.getElementById('docPage').style.display = 'none'; };
+        window.customForgotPassword = function() { let e = document.getElementById('email').value; if(!e){showToast("⚠️ Enter email first");return;} sendPasswordResetEmail(auth,e).then(()=>showToast("✅ Link sent")).catch(e => showToast(e.message)); };
+
+        window.customLoadNotifs = async function() {
+            let list = document.getElementById('notifListFull'); if(!list) return;
+            list.innerHTML = "Loading...";
+            try {
+                const qs = await getDocs(query(collection(db, "db_notifications"), where("email", "==", window.customCurrentUser)));
+                if(qs.empty) { list.innerHTML = "<p style='color:var(--text-muted);'>No new notifications.</p>"; }
+                else { list.innerHTML = ""; qs.forEach(d => { list.innerHTML += `<div style="padding:15px; background:rgba(79,70,229,0.05); border-radius:8px; margin-bottom:10px; border:1px solid var(--border-color);"><strong>Admin Reply:</strong><br><span style="color:var(--text-muted);">${d.data().msg}</span></div>`; }); }
+            } catch(e) { list.innerHTML = "<p>Error loading.</p>"; }
+        };
+
+        window.customNavigateHome = function() {
+            if(!window.customCurrentUser) window.customNavigate('homeSection');
+            else if(window.customCurrentUser === "admin") window.customNavigate('adminSection');
+            else window.customNavigate('dashboardSection');
+        }
+
+        window.customCheckLoginAndNavigate = function(id, isCreate=false) {
+            if(!window.customCurrentUser) { window.customNavigate('authSection'); showToast("Please login to continue!"); }
+            else { if(isCreate) { window.customCurrentEditUrl=null; window.customCurrentDraftId=null; window.customClearBuilderForm(); } window.customNavigate(id); }
+        }
+
+        window.customNavigate = function(id) { 
+            document.querySelectorAll('.card').forEach(c => { c.classList.remove('active-section'); c.style.display = ''; }); 
+            document.getElementById('publicViewContainer').style.display = 'none';
+            document.getElementById('docPage').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'flex';
+            
+            let slider = document.getElementById('homeSlider');
+            if(id === 'homeSection' || id === 'dashboardSection') { slider.style.display = 'block'; } else { slider.style.display = 'none'; }
+
+            let targetEl = document.getElementById(id);
+            if(targetEl) targetEl.classList.add('active-section'); 
+
+            window.customCloseSidebar();
+            if(id === 'worksSection') window.customLoadWorks(); 
+            if(id === 'notifSection') window.customLoadNotifs();
+        };
+
+        window.customSetupSidebarUser = function() { document.getElementById('sidebarLinks').innerHTML = `<a href="#" onclick="window.customNavigateHome()">🏠 Home</a><a href="#" onclick="window.customCheckLoginAndNavigate('builderSection', true)">➕ Create Web</a><a href="#" onclick="window.customNavigate('worksSection')">📁 My Works</a><a href="#" onclick="window.customNavigate('profileSection')">👤 Profile Setup</a><a href="#" onclick="window.customNavigate('settingsSection')">⚙ Settings</a><a href="#" onclick="window.customNavigate('helpSection')">❓ Help</a><a href="#" class="logout-link" onclick="window.customLogout()">🚪 Logout</a>`; }
+        window.customSetupSidebarAdmin = function() { document.getElementById('sidebarLinks').innerHTML = `<a href="#" onclick="window.customNavigate('adminSection')">🛡 Admin Panel</a><a href="#" class="logout-link" onclick="window.customLogout()">🚪 Logout</a>`; }
+        window.customSetupUserUI = function(uData) { document.getElementById('profileEmail').innerText = window.customCurrentUser; document.getElementById('pFirstName').value = uData.fName || ''; document.getElementById('pLastName').value = uData.lName || ''; document.getElementById('pDob').value = uData.dob || ''; }
+        
+        window.customLogout = function() { if(window.customCurrentUser === "admin") { localStorage.removeItem("loggedInAdmin"); window.location.reload(); } else signOut(auth).then(() => window.location.reload()); };
+
+        window.customAuthenticateStep1 = async function() {
+            let email = document.getElementById('email').value.trim().toLowerCase(), pass = document.getElementById('password').value;
+            if(!email || !pass) { showToast("⚠️ Fill all fields!"); return; }
+            if(email === adminU && pass === adminP) { showLoader(); setTimeout(() => { localStorage.setItem("loggedInAdmin", "true"); window.location.reload(); }, 800); return; }
+            if(!email.endsWith("@gmail.com")) { showToast("❌ Only @gmail.com allowed!"); return; }
+            if(window.customIsLoginMode) { showLoader(); try { await signInWithEmailAndPassword(auth, email, pass); } catch(error) { hideLoader(); showToast("❌ Invalid Credentials!"); } } 
+            else { document.getElementById('authStep1').style.display = 'none'; document.getElementById('authStep2').style.display = 'block'; }
+        };
+
+        window.customCompleteSignup = async function() {
+            let email = document.getElementById('email').value.trim().toLowerCase(), pass = document.getElementById('password').value, fName = document.getElementById('fName').value, dob = document.getElementById('regDob').value, terms = document.getElementById('termsCheck').checked;
+            if(!fName || !dob || !terms) { showToast("⚠️ Fill required & check terms!"); return; }
+            if(dob.length !== 10) { showToast("⚠️ DOB format DD/MM/YYYY"); return; }
+            let parts = dob.split('/'); let d = new Date(parts[2], parts[1]-1, parts[0]); let age = new Date(Date.now() - d.getTime()).getUTCFullYear() - 1970;
+            if(Math.abs(age) < 18) { showToast("❌ Must be 18+ to create an account!"); return; }
+            showLoader();
+            try { const c = await createUserWithEmailAndPassword(auth, email, pass); await setDoc(doc(db, "db_users", c.user.uid), { email, fName, dob, status: 'Active' }); } catch(e) { hideLoader(); showToast("❌ Error: "+e.message); }
+        };
+
+        // PROFILE, PASSWORD, DELETE
+        window.customSaveProfileDetails = async function() {
+            let fName = document.getElementById('pFirstName').value.trim(), lName = document.getElementById('pLastName').value.trim(), dob = document.getElementById('pDob').value.trim();
+            if(!fName || !dob) { showToast("⚠️ First Name and DOB required."); return; }
+            try { const qs = await getDocs(query(collection(db, "db_users"), where("email", "==", window.customCurrentUser))); if(!qs.empty) { await updateDoc(doc(db, "db_users", qs.docs[0].id), { fName, lName, dob }); showToast("✅ Profile Saved!"); } } catch(e) { showToast("Error: "+e.message); }
+        };
+
+        window.customChangePassword = async function() {
+            let newP = document.getElementById('newPass').value;
+            if(!newP) { showToast("Enter new password"); return; }
+            if(!auth.currentUser) { showToast("Not authenticated"); return; }
+            showLoader();
+            try { await updatePassword(auth.currentUser, newP); hideLoader(); showToast("Password updated!"); document.getElementById('newPass').value = ''; } 
+            catch(e) { hideLoader(); if(e.code === 'auth/requires-recent-login') { showToast("Please logout and login again to change password."); } else { showToast("Error: " + e.message); } }
+        };
+
+        window.customRequestAccountDeletion = async function() {
+            let pass = document.getElementById('delPass').value; if(!pass) { showToast("⚠️ Confirm password!"); return; }
+            showLoader();
+            try { await signInWithEmailAndPassword(auth, window.customCurrentUser, pass); const qs = await getDocs(query(collection(db, "db_users"), where("email", "==", window.customCurrentUser))); if(!qs.empty) { await updateDoc(doc(db, "db_users", qs.docs[0].id), { status: 'Pending Deletion', deleteOn: Date.now() + (7 * 24 * 60 * 60 * 1000) }); hideLoader(); showToast("Deletion Requested."); setTimeout(window.customLogout, 1500); } } catch(e) { hideLoader(); showToast("❌ Incorrect Password!"); }
+        };
+
+        // HELP CHAT SYSTEM
+        window.customStartChat = function() {
+            document.getElementById('chatStartBtn').style.display = 'none';
+            document.getElementById('chatEmailInput').style.display = 'block';
+            document.getElementById('chatEmailBtn').style.display = 'block';
+            if(window.customCurrentUser && window.customCurrentUser !== "admin") { document.getElementById('chatEmailInput').value = window.customCurrentUser; }
+            addChatMsg('bot', 'Hi! To start, please provide your Email ID.');
+        };
+        
+        window.customChatSubmitEmail = function() {
+            let em = document.getElementById('chatEmailInput').value.trim(); if(!em) return;
+            window.chatUserEmail = em; addChatMsg('user', em);
+            document.getElementById('chatEmailInput').style.display = 'none'; document.getElementById('chatEmailBtn').style.display = 'none';
+            document.getElementById('chatProbInput').style.display = 'block'; document.getElementById('chatProbBtn').style.display = 'block';
+            addChatMsg('bot', 'Thank you. Now, please describe your problem in detail.');
+        };
+
+        window.customChatSubmitProblem = async function() {
+            let prob = document.getElementById('chatProbInput').value.trim(); if(!prob) return;
+            addChatMsg('user', prob);
+            document.getElementById('chatProbInput').style.display = 'none'; document.getElementById('chatProbBtn').style.display = 'none';
+            showLoader();
+            try {
+                await addDoc(collection(db, "db_tickets"), { email: window.chatUserEmail, sub: "Support Chat", msg: prob, date: new Date().toISOString() });
+                addChatMsg('bot', 'Your problem has been submitted. Admin will check and reply shortly. You can check replies in Notifications.');
+                hideLoader();
+            } catch(e) { hideLoader(); showToast("Error submitting."); }
+        };
+
+        function addChatMsg(sender, text) {
+            let b = sender === 'bot' ? 'background:var(--card-bg); align-self:flex-start; border:1px solid var(--border-color);' : 'background:var(--primary); color:white; align-self:flex-end;';
+            document.getElementById('chatMessages').innerHTML += `<div style="padding:10px 15px; border-radius:12px; max-width:80%; font-size:14px; line-height:1.4; ${b}">${text}</div>`;
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+        }
+
+        // TICKETS, APPEALS, REPORTS
+        window.customSubmitAppeal = async function() { let text = document.getElementById('appealText').value; if(!text) return showToast("⚠️ Please write an explanation."); try { await addDoc(collection(db, "db_appeals"), { email: window.customCurrentUser, text: text, status: 'Pending', adminReply: '' }); window.customCloseModal('appealModal'); document.getElementById('appealText').value = ""; showToast("✅ Appeal Submitted!"); } catch(e) { showToast("Error: " + e.message); } };
+        window.customCheckReportOther = function() { let r = document.getElementById('reportReason').value; document.getElementById('reportDesc').style.display = r === 'Other' ? 'block' : 'none'; };
+        window.customSubmitReport = async function() { let reason = document.getElementById('reportReason').value, desc = reason === 'Other' ? document.getElementById('reportDesc').value : ''; if(reason === 'Other' && !desc) return showToast("⚠️ Describe the issue."); try { await addDoc(collection(db, "db_reports"), { link: window.customCurrentPreviewLink, reason, desc, date: new Date().toISOString() }); window.customCloseModal('reportModal'); document.getElementById('reportDesc').value = ""; document.getElementById('reportDesc').style.display = 'none'; showToast("🚩 Reported!"); } catch(e) { showToast("Error: " + e.message); } };
+
+        // --- BUILDER (3 STEPS) & DRAFTS ---
+        window.customNextStep = function(stepNum) { document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active')); document.querySelectorAll('.w-step-ind').forEach(s => s.classList.remove('active')); document.getElementById('bStep'+stepNum).classList.add('active'); document.getElementById('ind'+stepNum).classList.add('active'); if(stepNum === 3) window.customUpdatePreviewList(); }
+        window.customSwitchDataTab = function(type) { document.querySelectorAll('.data-tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.data-section').forEach(s => s.classList.remove('active')); document.getElementById('tab-' + type).classList.add('active'); document.getElementById('sec-' + type).classList.add('active'); };
+        window.customToggleClassSettings = function() { let isC = document.getElementById('enableClassCheck').checked; document.getElementById('classSettingsDiv').style.display = isC ? 'block' : 'none'; document.getElementById('mClassSelectContainer').style.display = isC ? 'block' : 'none'; window.customUpdateClassDropdowns(); };
+        window.customUpdateClassDropdowns = function() { let arr = document.getElementById('classNamesInput').value.split(',').map(s=>s.trim()).filter(s=>s!==""); document.getElementById('mClassDrop').innerHTML = arr.length > 0 ? arr.map(c => `<option value="${c}">${c}</option>`).join('') : `<option value="">No classes</option>`; };
+        window.customToggleManualSecurityFields = function() { let method = document.getElementById('searchMethod').value, container = document.getElementById('dynamicSecContainer'), dob = document.getElementById('mDobContainer'), pass = document.getElementById('mPassContainer'); if(method === 'regOnly') { container.style.display = 'none'; dob.style.display = 'none'; pass.style.display = 'none'; } else { container.style.display = 'grid'; if(method === 'regDob') { dob.style.display = 'block'; pass.style.display = 'none'; } else { dob.style.display = 'none'; pass.style.display = 'block'; } } };
+
+        window.customAddNewSubjectField = function() {
+            let subName = prompt("Subject Name (e.g., Maths):");
+            if(subName) { let grid = document.getElementById('dynamicSubjectsGrid'), container = document.createElement('div'); container.className = "input-group"; container.style.marginBottom = "0"; container.innerHTML = `<label>${subName}</label>`; let input = document.createElement('input'); input.type = "number"; input.className = "subject-input"; input.dataset.subname = subName; input.oninput = window.customCalculateTotal; container.appendChild(input); grid.insertBefore(container, document.getElementById('totalBoxContainer')); }
+        };
+
+        window.customCalculateTotal = function() { let total = 0; document.querySelectorAll('.subject-input').forEach(inp => { if(inp.value) total += parseFloat(inp.value); }); document.getElementById('mTotal').value = total; };
+        window.customShowFileName = function(input) { if(input.files.length > 0) document.getElementById('fileNameDisplay').innerText = "Selected: " + input.files[0].name; };
+
+        window.customAddManualStudent = function() {
+            let reg = document.getElementById('mReg').value.trim(), name = document.getElementById('mName').value.trim(), method = document.getElementById('searchMethod').value, dob = document.getElementById('mDob').value.trim(), pass = document.getElementById('mPass').value.trim(), status = document.getElementById('mStatus').value;
+            if(!reg && !name) { showToast(`⚠️ Reg No OR Name is required!`); return; }
+            if(method === 'regDob' && !dob) { showToast(`⚠️ DOB is required!`); return; }
+            if(method === 'regPass' && !pass) { showToast(`⚠️ Password is required!`); return; }
+            let stClass = ""; if(document.getElementById('enableClassCheck').checked) { stClass = document.getElementById('mClassDrop').value; if(!stClass) { showToast(`⚠️ Add a class first!`); return; } }
+            let subs = []; document.querySelectorAll('.subject-input').forEach(i => { if(i.value) subs.push({name: i.dataset.subname, mark: i.value}); });
+            window.customAddedStudents.push({ reg, name, dob, pass, status, stClass, total: document.getElementById('mTotal').value || '0', subs });
+            
+            document.getElementById('mReg').value = ''; document.getElementById('mName').value = ''; document.getElementById('mDob').value = ''; document.getElementById('mPass').value = ''; document.getElementById('mTotal').value = ''; document.getElementById('mStatus').value = 'Pass'; document.querySelectorAll('.subject-input').forEach(i => i.value = '');
+            window.customUpdatePreviewList(); document.getElementById('stuCountTxt').innerText = window.customAddedStudents.length + " Students Added"; showToast("Student Added!");
+        };
+
+        window.customUpdatePreviewList = function() {
+            let html = window.customAddedStudents.map((s, i) => `<div style="background:var(--bg-color); padding:10px; border-radius:6px; margin-bottom:8px; cursor:pointer;" onclick="this.lastElementChild.style.display=this.lastElementChild.style.display==='none'?'block':'none'"><strong>${s.name||'No Name'}</strong> - ${s.reg||'No Reg'} <span style="float:right; color:var(--danger);" onclick="event.stopPropagation(); window.customAddedStudents.splice(${i},1); window.customUpdatePreviewList(); document.getElementById('stuCountTxt').innerText = window.customAddedStudents.length + ' Students Added';">❌ Delete</span><div style="display:none; margin-top:10px; font-size:12px;">Total: ${s.total} | Status: ${s.status} <br> ${s.subs.map(x=>x.name+": "+x.mark).join(', ')}</div></div>`).join('');
+            let prevList = document.getElementById('studentListPreview'); if(prevList) prevList.innerHTML = html || "<p style='color:var(--text-muted); font-size:13px;'>No data added yet.</p>";
+        };
+
+        function getBuilderData() {
+            return {
+                name: document.getElementById('siteName').value, exam: document.getElementById('examName').value, color: document.getElementById('themeColor').value, searchMethod: document.getElementById('searchMethod').value,
+                sLabel: document.getElementById('studentLabel').value, mLabel: document.getElementById('marksLabel').value, hasClass: document.getElementById('enableClassCheck').checked, classes: document.getElementById('classNamesInput').value,
+                students: window.customAddedStudents, owner: window.customCurrentUser, date: new Date().toISOString()
+            };
+        }
+
+        window.customSaveDraft = async function(step) {
+            let data = getBuilderData(); data.isDraft = true; data.step = step;
+            showLoader();
+            try { if(window.customCurrentDraftId) await updateDoc(doc(db, "db_drafts", window.customCurrentDraftId), data); else { let ref = await addDoc(collection(db, "db_drafts"), data); window.customCurrentDraftId = ref.id; } hideLoader(); showToast("✅ Draft Saved!"); } catch(e) { hideLoader(); }
+        };
+
+        window.customVerifyAndPublish = async function() {
+            let data = getBuilderData();
+            if(!data.name || !data.exam) { showToast("⚠️ Institute and Exam Name required!"); return; }
+            if(window.customAddedStudents.length === 0) { showToast("⚠️ Add at least one student!"); return; }
+            data.url = data.name.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random()*1000);
+            data.link = window.location.origin + window.location.pathname + "?id=" + data.url;
+            showLoader();
+            try {
+                if(window.customCurrentEditUrl) { const qs = await getDocs(query(collection(db, "db_projects"), where("url", "==", window.customCurrentEditUrl))); if(!qs.empty) { data.url = window.customCurrentEditUrl; data.link = window.location.origin + window.location.pathname + "?id=" + data.url; await updateDoc(doc(db, "db_projects", qs.docs[0].id), data); } window.customCurrentEditUrl = null; } 
+                else { await addDoc(collection(db, "db_projects"), data); }
+                if(window.customCurrentDraftId) { await deleteDoc(doc(db, "db_drafts", window.customCurrentDraftId)); window.customCurrentDraftId = null; }
+                hideLoader(); window.customClearBuilderForm(); window.customNavigate('worksSection'); showToast("🎉 Published!");
+            } catch(e) { hideLoader(); showToast("❌ Publish Error"); }
+        };
+
+        window.customClearBuilderForm = function() {
+            document.getElementById('siteName').value = ""; document.getElementById('examName').value = ""; document.getElementById('themeColor').value = "#4f46e5"; document.getElementById('searchMethod').value = "regOnly"; document.getElementById('studentLabel').value = "Student"; document.getElementById('marksLabel').value = "Mark"; document.getElementById('builderMainTitle').innerText = "Create Result Portal"; document.getElementById('enableClassCheck').checked = false; document.getElementById('classNamesInput').value = "";
+            window.customToggleClassSettings(); window.customAddedStudents = []; window.customUpdatePreviewList(); window.customToggleManualSecurityFields(); document.getElementById('stuCountTxt').innerText = "0 Students Added";
+            document.getElementById('dynamicSubjectsGrid').innerHTML = `<div class="input-group" style="margin-bottom:0;" id="totalBoxContainer"><label>Total</label><input type="number" id="mTotal"></div>`;
+            window.customNextStep(1);
+        };
+
+        // --- WORKS & DRAFTS TABS ---
+        window.customSwitchWorksTab = function(t, btn) { document.querySelectorAll('.data-tab').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); document.getElementById('tab-published').style.display = t==='published'?'block':'none'; document.getElementById('tab-drafts').style.display = t==='drafts'?'block':'none'; window.customLoadWorks(); };
+
+        window.customLoadWorks = async function() {
+            let wList = document.getElementById('worksList'); let dList = document.getElementById('draftsList');
+            if(wList) wList.innerHTML = "Loading..."; if(dList) dList.innerHTML = "Loading...";
+            try {
+                const wQs = await getDocs(query(collection(db, "db_projects"), where("owner", "==", window.customCurrentUser)));
+                if(wList) { wList.innerHTML = wQs.empty ? "<p style='color:var(--text-muted); font-size:14px;'>No published works.</p>" : ""; wQs.forEach((d) => { let p = d.data(); wList.innerHTML += `<div class="project-card"><div class="card-theme-bar" style="background:${p.color};"></div><h4>${p.name}</h4><div class="card-actions"><button class="action-btn" style="background:rgba(79,70,229,0.1); color:var(--primary);" onclick="window.open('${p.link}', '_blank')">Open</button><button class="action-btn" style="background:#e0e7ff; color:var(--primary);" onclick="window.navigator.clipboard.writeText('${p.link}'); showToast('Copied!')">Share</button><button class="action-btn" style="background:#fef3c7; color:#92400e;" onclick="window.customEditWork('${p.url}')">Edit</button><button class="action-btn" style="background:#fee2e2; color:var(--danger);" onclick="window.customDeleteWork('${d.id}')">Delete</button></div></div>`; }); }
+                
+                const dQs = await getDocs(query(collection(db, "db_drafts"), where("owner", "==", window.customCurrentUser)));
+                if(dList) { dList.innerHTML = dQs.empty ? "<p style='color:var(--text-muted); font-size:14px;'>No drafts.</p>" : ""; dQs.forEach((d) => { let p = d.data(); dList.innerHTML += `<div class="project-card"><h4>${p.name||'Untitled Draft'}</h4><p style="font-size:12px; color:var(--text-muted);">Step: ${p.step||1}</p><div class="card-actions"><button class="action-btn" style="background:#fef3c7; color:#92400e;" onclick="window.customResumeDraft('${d.id}')">Resume</button><button class="action-btn" style="background:#fee2e2; color:var(--danger);" onclick="window.customDeleteDraft('${d.id}')">Delete</button></div></div>`; }); }
+            } catch(e) { }
+        };
+        
+        window.customShowToast = showToast;
+
+        window.customResumeDraft = async function(docId) {
+            showLoader();
+            try {
+                const qs = await getDocs(query(collection(db, "db_drafts"))); let d = null; qs.forEach(x => { if(x.id === docId) d = x.data(); });
+                if(d) {
+                    window.customCurrentDraftId = docId; window.customCurrentEditUrl = null;
+                    document.getElementById('siteName').value = d.name||''; document.getElementById('examName').value = d.exam||''; document.getElementById('themeColor').value = d.color||'#4f46e5'; document.getElementById('searchMethod').value = d.searchMethod||'regOnly'; document.getElementById('studentLabel').value = d.sLabel||'Student'; document.getElementById('marksLabel').value = d.mLabel||'Mark'; document.getElementById('enableClassCheck').checked = d.hasClass||false; document.getElementById('classNamesInput').value = d.classes || "";
+                    window.customToggleClassSettings(); window.customAddedStudents = d.students || []; document.getElementById('stuCountTxt').innerText = window.customAddedStudents.length + " Students Added"; window.customToggleManualSecurityFields();
+                    
+                    let grid = document.getElementById('dynamicSubjectsGrid'); grid.innerHTML = "";
+                    if(window.customAddedStudents.length > 0 && window.customAddedStudents[0].subs.length > 0) { window.customAddedStudents[0].subs.forEach(sub => { grid.innerHTML += `<div class="input-group" style="margin-bottom:0;"><label>${sub.name}</label><input type="number" class="subject-input" data-subname="${sub.name}" placeholder="0" oninput="window.customCalculateTotal()"></div>`; }); }
+                    grid.innerHTML += `<div class="input-group" style="margin-bottom:0;" id="totalBoxContainer"><label>Total</label><input type="number" id="mTotal"></div>`;
+                    hideLoader(); window.customNavigate('builderSection'); window.customNextStep(d.step||1);
+                }
+            } catch(e){ hideLoader(); }
+        };
+        window.customDeleteDraft = async function(id) { if(confirm("Delete this draft?")) { await deleteDoc(doc(db, "db_drafts", id)); window.customLoadWorks(); showToast("Deleted"); } };
+        window.customDeleteWork = async function(id) { if(confirm("Delete this published portal?")) { await deleteDoc(doc(db, "db_projects", id)); window.customLoadWorks(); showToast("Deleted"); } };
+        window.customEditWork = async function(url) { 
+            showLoader();
+            try {
+                const qs = await getDocs(query(collection(db, "db_projects"), where("url", "==", url)));
+                if(qs.empty) { hideLoader(); return; } let p = qs.docs[0].data();
+                window.customCurrentEditUrl = url; window.customCurrentDraftId = null;
+                document.getElementById('siteName').value = p.name; document.getElementById('examName').value = p.exam; document.getElementById('themeColor').value = p.color; document.getElementById('searchMethod').value = p.searchMethod; document.getElementById('studentLabel').value = p.sLabel; document.getElementById('marksLabel').value = p.mLabel; document.getElementById('enableClassCheck').checked = p.hasClass; document.getElementById('classNamesInput').value = p.classes || "";
+                window.customToggleClassSettings(); window.customAddedStudents = p.students || []; document.getElementById('stuCountTxt').innerText = window.customAddedStudents.length + " Students Added"; window.customToggleManualSecurityFields();
+                let grid = document.getElementById('dynamicSubjectsGrid'); grid.innerHTML = "";
+                if(window.customAddedStudents.length > 0 && window.customAddedStudents[0].subs.length > 0) { window.customAddedStudents[0].subs.forEach(sub => { grid.innerHTML += `<div class="input-group" style="margin-bottom:0;"><label>${sub.name}</label><input type="number" class="subject-input" data-subname="${sub.name}" placeholder="0" oninput="window.customCalculateTotal()"></div>`; }); }
+                grid.innerHTML += `<div class="input-group" style="margin-bottom:0;" id="totalBoxContainer"><label>Total</label><input type="number" id="mTotal"></div>`;
+                document.getElementById('builderMainTitle').innerText = "Edit Result Portal";
+                hideLoader(); window.customNavigate('builderSection'); window.customNextStep(1); showToast("✏️ Edit Mode");
+            } catch(e) { hideLoader(); }
+        };
+
+        // --- PUBLIC VIEW ---
+        window.customLoadPublicProjectFromFirebase = async function(urlId, email) {
+            showLoader();
+            try {
+                const qs = await getDocs(query(collection(db, "db_projects"), where("url", "==", urlId)));
+                if(qs.empty) { document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:var(--text-main);'>404 Not Found</h2>"; hideLoader(); return; }
+                let proj = qs.docs[0].data(); hideLoader();
+                window.customPreviewProj = proj; window.customCurrentPreviewLink = proj.link;
+                
+                document.getElementById('mainNavbar').style.display = 'none';
+                document.querySelectorAll('.card').forEach(c => { c.classList.remove('active-section'); c.style.display = 'none'; });
+                document.getElementById('homeSlider').style.display = 'none';
+                document.getElementById('mainContainer').style.display = 'flex';
+                document.getElementById('docPage').style.display = 'none';
+                
+                let pubView = document.getElementById('publicViewContainer');
+                pubView.style.display = 'flex';
+                
+                document.getElementById('publicSiteTitle').innerText = proj.name; document.getElementById('publicExamTitle').innerText = proj.exam;
+                document.getElementById('publicHeaderTheme').style.background = proj.color; document.getElementById('publicSearchBtn').style.background = proj.color;
+                
+                let secInput = document.getElementById('publicSecInput'), regInput = document.getElementById('publicRegInput');
+                regInput.placeholder = `Enter ${proj.sLabel || 'Register Number'}`;
+                if(proj.searchMethod === 'regOnly') { secInput.style.display = 'none'; } else { secInput.style.display = 'block'; secInput.type = proj.searchMethod === 'regPass' ? 'password' : 'text'; secInput.placeholder = proj.searchMethod === 'regDob' ? 'Enter DOB (DD/MM/YYYY)' : 'Enter Password'; }
+                
+                let classDrop = document.getElementById('publicClassSelect'), menuCw = document.getElementById('publicMenuClassResults');
+                if(proj.hasClass) { let arr = (proj.classes || "").split(',').map(s=>s.trim()).filter(s=>s!==""); classDrop.innerHTML = arr.map(c => `<option value="${c}">${c}</option>`).join(''); classDrop.style.display = 'block'; menuCw.style.display = 'block'; document.getElementById('publicCwSelect').innerHTML = arr.map(c => `<option value="${c}">${c}</option>`).join(''); } else { classDrop.style.display = 'none'; menuCw.style.display = 'none'; }
+                if(email && proj.owner === email) { document.getElementById('publicBackLink').style.display = 'inline'; }
+
+                regInput.value = ""; secInput.value = ""; window.customShowPublicSearchBox();
+            } catch(e){ hideLoader(); }
+        };
+
+        window.customRunPublicSearch = function() {
+            let reg = document.getElementById('publicRegInput').value.trim(), sec = document.getElementById('publicSecInput').value.trim();
+            if(!reg) { showToast("⚠️ Enter Details"); return; }
+            let s = window.customPreviewProj.students.find(st => (st.reg && st.reg.toLowerCase() === reg.toLowerCase()) || (st.name && st.name.toLowerCase() === reg.toLowerCase()));
+            if(!s) { showToast("❌ Not Found"); return; }
+            if(window.customPreviewProj.hasClass && s.stClass !== document.getElementById('publicClassSelect').value) { showToast("❌ Not in selected class"); return; }
+            if(window.customPreviewProj.searchMethod === 'regDob' && s.dob !== sec) { showToast("❌ Wrong DOB"); return; }
+            if(window.customPreviewProj.searchMethod === 'regPass' && s.pass !== sec) { showToast("❌ Wrong Password"); return; }
+
+            let subHtml = s.subs.map(sub => `<div class="result-row"><strong>${sub.name}</strong><span>${sub.mark}</span></div>`).join('');
+            let statusColor = s.status === 'Fail' ? 'var(--danger)' : 'var(--success)'; let statusBg = s.status === 'Fail' ? '#fee2e2' : '#ecfdf5'; let statusBorder = s.status === 'Fail' ? '#fca5a5' : '#a7f3d0';
+
+            document.getElementById('publicResultCard').innerHTML = `<div style="text-align:center; margin-bottom:15px;"><div class="status-pass" style="background:${statusBg}; color:${statusColor}; border-color:${statusBorder};">${s.status || 'Pass'}</div><h4 style="font-size:18px; margin-top:5px;">${s.name}</h4><p style="font-size:12px; color:var(--text-muted);">${window.customPreviewProj.sLabel||'Student'}: ${s.reg}</p></div>${subHtml}<div class="result-row" style="background:rgba(16,185,129,0.1); padding:10px; border-radius:6px; margin-top:10px; border:none;"><strong>Total ${window.customPreviewProj.mLabel||'Marks'}</strong><strong style="color:var(--success); font-size:16px;">${s.total}</strong></div><button class="btn-main print-btn" style="margin-top:15px; background:#111827;" onclick="window.print()">🖨️ Download PDF / Print</button>`;
+            document.getElementById('publicSearchBox').style.display = 'none'; document.getElementById('publicResultCard').style.display = 'block';
+        };
+
+        window.customTogglePublicMenu = function() { document.getElementById('publicMenu').classList.toggle('open'); };
+        window.customExitPublicView = function() { window.location.search = ''; window.location.hash = ''; location.reload(); };
+        window.customShowPublicSearchBox = function() { document.getElementById('publicSearchBox').style.display = 'block'; document.getElementById('publicResultCard').style.display = 'none'; document.getElementById('publicClassWiseBox').style.display = 'none'; document.getElementById('publicDocBox').style.display = 'none'; document.getElementById('publicMenu').classList.remove('open'); };
+        window.customShowPublicClassBox = function() { document.getElementById('publicSearchBox').style.display = 'none'; document.getElementById('publicResultCard').style.display = 'none'; document.getElementById('publicClassWiseBox').style.display = 'block'; document.getElementById('publicDocBox').style.display = 'none'; document.getElementById('publicMenu').classList.remove('open'); window.customRenderPublicClassWiseList(); };
+        window.customOpenPreviewDoc = async function(type) {
+            let title = type==='privacy' ? "Privacy Policy" : "Terms & Conditions"; let text = type==='privacy' ? defPrivacy : defTerms;
+            try { const qs = await getDocs(query(collection(db, "db_settings"), where("id", "==", "global"))); if(!qs.empty) { let d = qs.docs[0].data(); text = type==='privacy' ? (d.privacy||defPrivacy) : (d.terms||defTerms); } } catch(e){}
+            document.getElementById('pubDocTitle').innerText = title; document.getElementById('pubDocContent').innerText = text;
+            document.getElementById('publicSearchBox').style.display = 'none'; document.getElementById('publicResultCard').style.display = 'none'; document.getElementById('publicClassWiseBox').style.display = 'none'; document.getElementById('publicDocBox').style.display = 'block'; document.getElementById('publicMenu').classList.remove('open');
+        };
+        window.customRenderPublicClassWiseList = function() {
+            let cls = document.getElementById('publicCwSelect').value, list = document.getElementById('publicCwList'), filtered = window.customPreviewProj.students.filter(s => s.stClass === cls);
+            if(filtered.length === 0) { list.innerHTML = `<p style="font-size:12px; color:var(--text-muted);">No results found.</p>`; return; }
+            list.innerHTML = filtered.map(s => `<div class="result-row" style="background:var(--bg-color); padding:10px; border-radius:6px; margin-bottom:8px; border:none; align-items:center;"><div><strong>${s.reg}</strong><br><span style="color:var(--text-muted);">${s.name}</span></div><strong style="color:${s.status === 'Fail' ? 'var(--danger)' : 'var(--success)'};">${s.total} (${s.status})</strong></div>`).join('');
+        };
+
+        // --- ADMIN EXTRA ---
+        window.customSwitchAdminTab = function(id, btn) { document.querySelectorAll('.admin-tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.admin-tab-content').forEach(c=>c.style.display='none'); document.getElementById('admin-'+id).style.display='block'; if(id === 'users') window.customLoadAdminUsers(); if(id === 'tickets') window.customLoadAdminTickets(); };
+        window.customLoadAdminUsers = async function() {
+            let html = ''; const qs = await getDocs(collection(db, "db_users"));
+            qs.forEach((docSnap) => { let u = docSnap.data(); let badgeClass = u.status==='Active' ? 'badge-active' : (u.status==='Suspended' ? 'badge-suspended' : 'badge-pending'); let btnTxt = u.status==='Active' ? 'Suspend' : 'Activate'; let btnColor = u.status==='Active' ? 'var(--danger)' : '#065f46'; let btnBg = u.status==='Active' ? '#fee2e2' : '#d1fae5'; html += `<tr><td><span style="color:var(--primary); cursor:pointer; font-weight:600;" onclick="window.customAdminEditUser('${docSnap.id}', '${u.fName||''}', '${u.lName||''}', '${u.dob||''}')">${u.email}</span></td><td><span class="badge ${badgeClass}">${u.status}</span></td><td><button onclick="window.customAdminToggleStatus('${docSnap.id}', '${u.status}')" style="padding:6px; font-size:11px; font-weight:600; cursor:pointer; background:${btnBg}; color:${btnColor}; border:1px solid ${btnColor}; border-radius:6px; margin-right:5px;">${btnTxt}</button><button onclick="window.customAdminDelete('${docSnap.id}')" style="padding:6px; font-size:11px; cursor:pointer; color:white; background:var(--danger); border:none; border-radius:6px;">Delete</button></td></tr>`; }); document.getElementById('adminUserList').innerHTML = html;
+        };
+        window.customAdminToggleStatus = async function(docId, currentStatus) { let newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active'; await updateDoc(doc(db, "db_users", docId), { status: newStatus }); window.customLoadAdminUsers(); showToast("Status Changed"); };
+        window.customAdminDelete = async function(docId) { if(confirm("Set account to Pending Deletion? (7 days delay)")) { await updateDoc(doc(db, "db_users", docId), { status: 'Pending Deletion', deleteOn: Date.now() + (7 * 24 * 60 * 60 * 1000) }); window.customLoadAdminUsers(); showToast("Deletion Scheduled"); } };
+        window.customAdminEditUser = function(docId, fName, lName, dob) { window.customAdminEditingUserDocId = docId; document.getElementById('aeFName').value = fName||''; document.getElementById('aeLName').value = lName||''; document.getElementById('aeDob').value = dob||''; window.customOpenModal('adminEditUserModal'); };
+        window.customAdminSaveUserEdit = async function() { await updateDoc(doc(db, "db_users", window.customAdminEditingUserDocId), { fName: document.getElementById('aeFName').value, lName: document.getElementById('aeLName').value, dob: document.getElementById('aeDob').value }); window.customCloseModal('adminEditUserModal'); window.customLoadAdminUsers(); showToast("User Updated"); };
+        
+        window.customLoadAdminTickets = async function() { let html = ''; const qs = await getDocs(collection(db, "db_tickets")); qs.forEach((docSnap) => { let t = docSnap.data(); html += `<tr><td>${t.email} <br><span style="font-size:10px; color:gray;">${t.sub}</span></td><td>${t.msg}</td><td><button onclick="window.customOpenReply('${t.email}')" style="padding:6px; font-size:11px; cursor:pointer; background:var(--primary); color:white; border:none; border-radius:6px;">Reply</button></td></tr>`; }); document.getElementById('adminTicketList').innerHTML = html; };
+        window.customOpenReply = function(email) { window.currentAdminReplyUser = email; window.customOpenModal('replyModal'); };
+        window.customSendReply = async function() { let msg = document.getElementById('replyMsg').value; if(!msg) return; try { await addDoc(collection(db, "db_notifications"), { email: window.currentAdminReplyUser, msg }); window.customCloseModal('replyModal'); document.getElementById('replyMsg').value = ''; showToast("Reply Sent!"); } catch(e) { showToast("Error sending reply"); } };
+
+        window.customSaveAdminCreds = async function() { let nu = document.getElementById('adminUserNew').value, np = document.getElementById('adminPassNew').value; const qs = await getDocs(query(collection(db, "db_settings"), where("id", "==", "global"))); if(!qs.empty) await updateDoc(doc(db, "db_settings", qs.docs[0].id), { adminU: nu, adminP: np }); showToast("Credentials Updated!"); };
+        window.customSaveAdminSliders = async function() { let s = { s1i: document.getElementById('sl1i').value, s1t: document.getElementById('sl1t').value, s2i: document.getElementById('sl2i').value, s2t: document.getElementById('sl2t').value, s3i: document.getElementById('sl3i').value, s3t: document.getElementById('sl3t').value, s4i: document.getElementById('sl4i').value, s4t: document.getElementById('sl4t').value }; const qs = await getDocs(query(collection(db, "db_settings"), where("id", "==", "global"))); if(!qs.empty) await updateDoc(doc(db, "db_settings", qs.docs[0].id), { sliders: s }); showToast("Sliders Saved!"); };
+        window.customSaveAdminSettings = async function() { let i = document.getElementById('adminIntroText').value, p = document.getElementById('adminPrivacyText').value, t = document.getElementById('adminTermsText').value; try { const qs = await getDocs(query(collection(db, "db_settings"), where("id", "==", "global"))); if(!qs.empty) { await updateDoc(doc(db, "db_settings", qs.docs[0].id), { intro: i, privacy: p, terms: t }); } else { await addDoc(collection(db, "db_settings"), { id: "global", intro: i, privacy: p, terms: t }); } showToast("Settings Saved!"); } catch(e) { showToast("Error: " + e.message); } };
+
+    </script>
+</body>
+</html>
